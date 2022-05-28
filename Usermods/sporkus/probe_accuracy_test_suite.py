@@ -266,7 +266,10 @@ def now() -> str:
 
 
 if __name__ == "__main__":
-    ap = argparse.ArgumentParser(description="Automated probe testing")
+    ap = argparse.ArgumentParser(
+        description="""Automated probe testing. 
+    All three tests will run at default values unless individual tests are specified"""
+    )
     ap.add_argument(
         "--corner",
         nargs="?",
