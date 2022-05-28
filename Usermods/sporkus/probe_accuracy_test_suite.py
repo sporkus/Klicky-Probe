@@ -8,6 +8,7 @@
 # Notes:
 # * First probe measurements are dropped
 
+import argparse
 import re
 import os
 import math
@@ -20,35 +21,36 @@ from requests import get, post
 from typing import Tuple, List, Dict
 
 LEVEL_GCODE = "QUAD_GANTRY_LEVEL"
-LOCK_PROBE = True  # set to False to dock/undock between tests
-EXPORT_DATA = False  # set to True to export data as csv for analysis
 MOONRAKER_URL = "http://localhost:7125"
 KLIPPY_LOG = "/home/pi/klipper_logs/klippy.log"
 DATA_DIR = "/home/pi/probe_accuracy_results"
 
 
-def main():
+def main(corner, repeatability, drift, export_csv):
     if not os.path.exists(DATA_DIR):
         os.mkdir(DATA_DIR)
     try:
         homing()
         level_bed()
         move_to_safe_z()
-        test_routine()
+        if not any([corner, repeatability, drift]):
+            corner = 30
+            repeatability = 20
+            drift = 100
+            print("Running all tests")
+        test_routine(corner, repeatability, drift, export_csv)
     except KeyboardInterrupt:
         send_gcode("DOCK_PROBE_UNLOCK")
 
 
-def test_routine():
-    if LOCK_PROBE:
-        send_gcode("ATTACH_PROBE_LOCK")
-    dfs = [
-        test_corners(n=30),
-        test_drift(n=100),
-        test_repeatability(test_count=20, probe_count=10),
-    ]
-    send_gcode("DOCK_PROBE_UNLOCK")
-
+def test_routine(corner, repeatability, drift, export_csv):
+    dfs = []
+    if corner:
+        dfs.append(test_corners(n=corner))
+    if repeatability:
+        dfs.append(test_repeatability(test_count=repeatability, probe_count=10))
+    if drift:
+        dfs.append(test_drift(n=drift))
     df = pd.concat(dfs, axis=0, ignore_index=True).sort_index()
 
     file_nm = f"probe_accuracy_test_{now()}"
@@ -57,7 +59,7 @@ def test_routine():
     )
     summary["drift"] = summary["last"] - summary["first"]
 
-    if EXPORT_DATA:
+    if export_csv:
         df.to_csv(DATA_DIR + "/" + file_nm + ".csv", index=False)
         summary.to_csv(f"{DATA_DIR}/{file_nm}_summary.csv")
 
@@ -104,6 +106,7 @@ def test_corners(n=30):
         "\nTest probe around the bed to see if there are issues with individual drives"
     )
     level_bed(force=True)
+    send_gcode("ATTACH_PROBE_LOCK")
     dfs = []
     for i, xy in enumerate(get_bed_corners()):
         xy_txt = f"({xy[0]:.0f}, {xy[1]:.0f})"
@@ -115,6 +118,7 @@ def test_corners(n=30):
         )
         df["measurement"] = xy_txt
         dfs.append(df)
+    send_gcode("DOCK_PROBE_UNLOCK")
     df = pd.concat(dfs, axis=0)
     summary = df.groupby("test")["z"].agg(
         ["min", "max", "first", "last", "mean", "std", "count"]
@@ -262,4 +266,30 @@ def now() -> str:
 
 
 if __name__ == "__main__":
-    main()
+    ap = argparse.ArgumentParser(description="Automated probe testing")
+    ap.add_argument(
+        "--corner",
+        nargs="?",
+        type=int,
+        help="Enable corner test. Number of probe samples at each corner can be optionally provided. Default 30.",
+    )
+    ap.add_argument(
+        "--repeatability",
+        nargs="?",
+        type=int,
+        help="Enable corner test. Number of probe_accuracy tests can be optionally provided. Default 20.",
+    )
+    ap.add_argument(
+        "--drift",
+        nargs="?",
+        type=int,
+        help="Enable drift test. Number of probe_accuracy samples can be optionally provided. Default 100.",
+    )
+    ap.add_argument(
+        "--export_csv",
+        action="store_true",
+        help="export data as csv",
+    )
+
+    args = vars(ap.parse_args())
+    main(**args)
