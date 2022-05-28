@@ -20,7 +20,8 @@ from requests import get, post
 from typing import Tuple, List, Dict
 
 LEVEL_GCODE = "QUAD_GANTRY_LEVEL"
-LOCK_PROBE = True  # if False, probe will dock/undock between tests
+LOCK_PROBE = True  # set to False to dock/undock between tests
+EXPORT_DATA = False  # set to True to export data as csv for analysis
 MOONRAKER_URL = "http://localhost:7125"
 KLIPPY_LOG = "/home/pi/klipper_logs/klippy.log"
 DATA_DIR = "/home/pi/probe_accuracy_results"
@@ -51,12 +52,14 @@ def test_routine():
     df = pd.concat(dfs, axis=0, ignore_index=True).sort_index()
 
     file_nm = f"probe_accuracy_test_{now()}"
-    df.to_csv(DATA_DIR + "/" + file_nm + ".csv", index=False)
     summary = df.groupby("test")["z"].agg(
         ["min", "max", "first", "last", "mean", "std", "count"]
     )
     summary["drift"] = summary["last"] - summary["first"]
-    summary.to_csv(f"{DATA_DIR}/{file_nm}_summary.csv")
+
+    if EXPORT_DATA:
+        df.to_csv(DATA_DIR + "/" + file_nm + ".csv", index=False)
+        summary.to_csv(f"{DATA_DIR}/{file_nm}_summary.csv")
 
 
 def test_drift(n=100):
@@ -100,6 +103,7 @@ def test_corners(n=30):
     print(
         "\nTest probe around the bed to see if there are issues with individual drives"
     )
+    level_bed(force=True)
     dfs = []
     for i, xy in enumerate(get_bed_corners()):
         xy_txt = f"({xy[0]:.0f}, {xy[1]:.0f})"
@@ -107,11 +111,11 @@ def test_corners(n=30):
         df = test_probe(
             probe_count=n,
             loc=xy,
-            testname=f"corner_{n}samples{xy_txt}",
+            testname=f"corner_{n}samples_{i}:{xy_txt}",
         )
         df["measurement"] = xy_txt
         dfs.append(df)
-    df = pd.concat(dfs, axis=0).sort_index()
+    df = pd.concat(dfs, axis=0)
     summary = df.groupby("test")["z"].agg(
         ["min", "max", "first", "last", "mean", "std", "count"]
     )
@@ -122,7 +126,7 @@ def test_corners(n=30):
     plt.title(plot_nm)
     plt.suptitle("")
     ax.figure.savefig(DATA_DIR + "/" + plot_nm + ".png")
-    plot_repeatability(df, plot_nm="corners_series", cols=4)
+    plot_repeatability(df, plot_nm="corners_series", cols=2)
     return df
 
 
@@ -163,10 +167,10 @@ def homing() -> None:
         send_gcode("G28")
 
 
-def level_bed() -> None:
+def level_bed(force=False) -> None:
     """Level bed if not done already"""
     status = query_printer_objects(LEVEL_GCODE.lower(), "applied")
-    if not status:
+    if (not status) or force:
         print("Leveling")
         send_gcode(LEVEL_GCODE)
 
@@ -210,7 +214,7 @@ def get_bed_corners() -> List:
     xmax = float(xmax) - float(x_offset)
     ymax = float(ymax) - float(y_offset)
 
-    return [(xmin, ymin), (xmin, ymax), (xmax, ymax), (xmax, ymin)]
+    return [(xmin, ymax), (xmax, ymax), (xmin, ymin), (xmax, ymin)]
 
 
 def move_to_loc(x, y):
