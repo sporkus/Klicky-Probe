@@ -10,6 +10,7 @@
 
 import re
 import os
+import math
 from datetime import datetime
 from statistics import mean
 
@@ -31,6 +32,7 @@ def main():
     try:
         homing()
         level_bed()
+        move_to_safe_z()
         test_routine()
     except KeyboardInterrupt:
         send_gcode("DOCK_PROBE_UNLOCK")
@@ -42,7 +44,7 @@ def test_routine():
     dfs = [
         test_corners(n=30),
         test_drift(n=100),
-        test_repeatability(test_count=20, probe_count=5),
+        test_repeatability(test_count=20, probe_count=10),
     ]
     send_gcode("DOCK_PROBE_UNLOCK")
 
@@ -75,6 +77,7 @@ def test_repeatability(test_count=10, probe_count=10):
     dfs = []
     for i in range(test_count):
         send_gcode("DOCK_PROBE_UNLOCK")
+        send_gcode(f"M117 repeatability test {i+1}/{test_count}")
         df = test_probe(probe_count, testname=f"center_{probe_count}samples_#{i:02d}")
         df["measurement"] = f"Test #{i:02d}"
         dfs.append(df)
@@ -89,6 +92,7 @@ def test_repeatability(test_count=10, probe_count=10):
     plt.title(plot_nm)
     plt.suptitle("")
     ax.figure.savefig(DATA_DIR + "/" + plot_nm + ".png")
+    plot_repeatability(df, plot_nm="repeatability_series")
     return df
 
 
@@ -99,6 +103,7 @@ def test_corners(n=30):
     dfs = []
     for i, xy in enumerate(get_bed_corners()):
         xy_txt = f"({xy[0]:.0f}, {xy[1]:.0f})"
+        send_gcode(f"M117 corner test {i+1}/4")
         df = test_probe(
             probe_count=n,
             loc=xy,
@@ -117,7 +122,31 @@ def test_corners(n=30):
     plt.title(plot_nm)
     plt.suptitle("")
     ax.figure.savefig(DATA_DIR + "/" + plot_nm + ".png")
+    plot_repeatability(df, plot_nm="corners_series", cols=4)
     return df
+
+
+def plot_repeatability(df, cols=5, plot_nm=None):
+    dfg = df.groupby("test")
+    rows = math.ceil(dfg.ngroups / cols)
+    fig, axs = plt.subplots(rows, cols, sharex=True, sharey=True, figsize=(15, 10))
+
+    i, j = 0, 0
+    for test, df in dfg:
+        ax = axs[i][j] if rows > 1 else axs[j]
+        ax.scatter(df["index"], df["z"])
+        ax.set_title(test)
+        j += 1
+        if j == cols:
+            i += 1
+            j = 0
+
+    for ax in axs.flat:
+        ax.set(xlabel="probe sample", ylabel="z")
+        ax.label_outer()
+
+    fig.tight_layout()
+    fig.savefig(f"{DATA_DIR}/probe_accuracy_{now()}_{plot_nm}.png")
 
 
 def send_gcode(gcode):
@@ -140,6 +169,15 @@ def level_bed() -> None:
     if not status:
         print("Leveling")
         send_gcode(LEVEL_GCODE)
+
+
+def move_to_safe_z():
+    safe_z = query_printer_objects("gcode_macro _User_Variables", "safe_z")
+    if not safe_z:
+        print("Safe z has not been set in klicky-variables")
+        safe_z = input("Enter safe z height to avoid crash:")
+
+    send_gcode(f"G1 Z{safe_z}")
 
 
 def query_printer_objects(object, key=None):
