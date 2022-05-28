@@ -75,7 +75,7 @@ def test_repeatability(test_count=10, probe_count=10):
     dfs = []
     for i in range(test_count):
         send_gcode("DOCK_PROBE_UNLOCK")
-        df = test_probe(probe_count, testname=f"center_{probe_count}samples_#{i}")
+        df = test_probe(probe_count, testname=f"center_{probe_count}samples_#{i:02d}")
         df["measurement"] = f"Test #{i:02d}"
         dfs.append(df)
     df = pd.concat(dfs, axis=0).sort_index()
