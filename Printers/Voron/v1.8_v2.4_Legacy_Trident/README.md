@@ -32,6 +32,33 @@ There are also some more mounting options on [Usermods](./Usermods/), integrated
 
 This mod is also on [VoronUsers repository](https://github.com/VoronDesign/VoronUsers/tree/master/printer_mods/JosAr/Klicky-Probe) 
 
+## Probe options
+
+Right now, there are two probe attachment options, each with two probe types.
+
+### [Regular Klicky](../../../Probes/KlickyProbe/)
+
+First klicky probe, based on the [Quickdraw probe](https://github.com/Annex-Engineering/Quickdraw_Probe), with an added third magnet for added stability and fixed dock gantry setups.
+
+<img src="../../../Probes/KlickyProbe/Photos/KlickyProbe.png" alt="klickyprobe" style="zoom:50%;" />
+
+It uses magnets to secure the probe to the mount and also to make the electrical connection.
+The magnets can be glued to prevent them from coming loose.
+It supports a [microswitch probe](../../../Probes/KlickyProbe/) and [Unklicky](../../../Probes/UnklickyProbe/) ([invented by DustinSpeed](https://github.com/majarspeed/Unklicky)) (self built probe, that so far surpasses the microswitches in common use) based probing.
+
+[Assembly instruction](../../../Probes/KlickyProbe/)
+
+### [KlickyNG](../../../Probes/KlickyNG/)
+
+New enclosed magnets probe, it does not require glue to help prevent the magnets from coming loose, magnets are also self aligning.
+This approach only uses common and easy to source parts.
+
+<img src="../../../Probes/KlickyNG/Photos/klickyNG.png" alt="klickyprobe" style="zoom:50%;" />
+
+Also supports [microswitch probe](../../../Probes/KlickyNG/) and [Unklicky](../../../Probes/UnklickyNG/) ([invented by DustinSpeed](https://github.com/majarspeed/Unklicky)) (self built probe, that so far surpasses the microswitches in common use) based probing.
+
+[Assembly instruction](../../../Probes/KlickyNG/)
+
 ## Bill of Materials (BOM)
 
 ### Tools:
@@ -75,7 +102,8 @@ To get the best experience, please consider purchasing from the trusted list of 
 
 ## Parts location
 
-The probe STL's are located [here](../../../Base_STL).
+The Regular probe STL's are located [here](../../../Probes/KlickyProbe/STL).
+KlickyNG probe STL's are located [here](../../../Probes/KlickyNG/STL).
 
 The printer specific STL's are located [here](./v1.8_v2.4_Legacy_Trident_STL).
 
@@ -162,90 +190,9 @@ Secure the magnet with a dab of super glue (not a lot, just a drop).
 
 Mount the Probe Dock to the back rail of your gantry with the two M5x10 and the two roll in nuts.
 
-### Step 2: Probe Assembly
+### Step 3: Probe Assembly
 
-For the probe assembly you need the following parts:
-
-- [ ] 1x microswitch
-- [ ] 2x M2x10 mm self tapping
-- [ ] 4x 6 mm x 3 mm magnets
-- [ ] 1.5mm Drill (optional)
-- [ ] Multimeter to check for Continuity 
-- [ ] Super Glue
-
-<img src="./Photos/probe_components.jpg" width="600" />
-
-Maybe you need to clear the holes for the microswitch, a 1.5mm drill bit should work fine.
-
-Install the microswitch so that the arrow on the probe body is pointing to the little switch.
-
-<img src=".\Photos\Probe_MStoArrow_alignment.jpg" width="600px;" />
-
-
-
-<img src="./Photos/probe_install.jpg" width="600" />
-
-Then take your self tapping screws and screw the microswitch in place.
-
-<img src="./Photos/Probe_topside.jpg" width="600" />
-
-
-
-Before placing the magnets, use some super glue on the holes (not a lot, just a drop), avoid the switch parts.
-
-You want to install the magnets in the way that the ones which are connected to the microswitch, have the same polarity  The 3rd magnet should have the inverse polarity, you can use the included pressfit helpers to help in securing the probe when you are inserting the magnets.
-
-There is no need for soldering, the probe microswitch connectors are press-fit on the magnets, they should remain with the top above the probe plastic.
-
-<img src="./Photos/probe_v1_underside.jpg" width="600" />
-
-Don't forget to install the magnet which holds the probe to the probe dock, make sure it is fully inserted.
-
-As the last step of the probe assembly check if you have continuity between these two magnets
-
-<img src="./Photos/probe_v1_underside_marked_magnets.jpg" width="600" />
-
-If you have a normally closed switch (as you should), then you should have a current flow, so continuity is established. When you press the switch you should lose continuity. When you have a normally open switch then the behavior is the other way around.
-
-### Step 3: AB/SB Mount Assembly
-
-For the AB/SB Mount assembly you need the following parts
-
-- [ ] 3x 6 mm x 3 mm magnets
-- [ ] 2 x 10cm 22AWG cable to connect the Klicky Probe to the Mircofit Terminal
-- [ ] Multimeter to check for Continuity 
-- [ ] Super Glue
-
-The probe mount wires are also connected with pressure from the magnets, you can use the probe magnets as a template to insert the probe mount magnets, it is easier that way, so that the magnets are not inserted the wrong way.
-
-| <img src="./Photos/AB_Mount_wiring_1.jpg" width="150" /> | <img src="./Photos/AB_Mount_wiring_2.jpg" width="150" /> | <img src="./Photos/AB_Mount_wiring_3.jpg" width="150" /> | <img src="./Photos/AB_Mount_wiring_4.jpg" width="150" /> | <img src="./Photos/AB_Mount_wiring_complete.jpg" width="150" /> |
-| :------------------------------------------------------: | :------------------------------------------------------: | :------------------------------------------------------: | :------------------------------------------------------: | :----------------------------------------------------------: |
-
-You will not lose Y travel on any configuration in the tests that were done.
-
-After everything is assembled let's check again for continuity.
-
-<img src="./Photos/ABMountCheckforContiuity.jpg" width="600px;" />
-
-
-
-### Step 3.1: Press-fit the magnets
-
-You can now press fit the magnets in place:
-
-<p float="left">
-  <img src="./Photos/Klicky_probe_press_Helper.jpg" width="300" />
-  <img src="./Photos/AB_mount_press_Helper.jpg" width="300" />
-</p>
-
-Insert the AB mount and probe in the helper parts and you can then press fit with a vice or on a hard surface.
-
-<p float="left">
-  <img src="./Photos/Klicky_probe_press_Helper_inuse.jpg" width="300" />
-  <img src="./Photos/AB_mount_press_Helper_inuseBack.jpg" width="300" />
-  <img src="./Photos/AB_mount_press_Helper_inuseTop.jpg" width="300" />
-</p>
-
+Please [go to the probes directory and choose the one you want to install](../../../Probes/), the instructions are also there.
 
 ### Step 4: AB/SB Mount installation and wiring
 
@@ -281,12 +228,12 @@ variable_safe_z:         	    25    # Minimum Z for attach/dock and homing funct
 # if true it will move the bed away from the nozzle when Z is not homed
 variable_enable_z_hop:          CHECK_COMMENT  # True on the v2.4, False on v1.8, Trident and Legacy
     
-#Dock move (the final movement required to reach the dock and avoid the arms with the probe attached)
+#Dock move (the final movement required to release the probe on the dock)
 Variable_dockmove_x:                40    # Final toolhead movement to release
 Variable_dockmove_y:                0     # the probe on the dock
 Variable_dockmove_z:                0     # (can be negative)
 
-#Attach move (the final movement required release the probe on the dock)
+#Attach move (the final movement required to reach the dock and avoid the arms with the probe attached)
 Variable_attachmove_x:              0     # Final toolhead movement to Dock
 Variable_attachmove_y:              30    # the probe on the dock
 Variable_attachmove_z:              0     # (can be negative)
@@ -301,7 +248,7 @@ pin: ^P0.10
 x_offset: 0
 y_offset: 19.75
 z_offset: 6.42
-speed: 7
+speed: 5
 samples:3 
 samples_result: median
 sample_retract_dist: 2.0
@@ -319,26 +266,16 @@ horizontal_move_z: 10
 horizontal_move_z: 10
 ```
 
-I recommend a probing speed between 5mm/s and 10mm/s, you may experiment to see what is the better speed for your machine.
+I recommend a probing speed between 3mm/s and 10mm/s, you may experiment to see what is the better speed for your machine.
 Please confirm that if you are using the probe input, that the pull-up is enable by using the ^ sign, normally the endstop pins have a hardware solution that does not require this configuration.
 Depending on your switch you may need to add a `!` to invert that pin (normally open vs. normally closed).
 Normally the endstop pins use a hardware solution, so it is not necessary.
 
 There is now an arrow on the probe telling you where should the switch pole be to have the correct offset.
 
-#### Z endstop and Probe configuration
+#### Z endstop and Probe configuration (virtual Z endstop)
 
-If you want to use the Klicky Probe as your Z endstop, you need to change the `endstop_pin:` under the `[stepper_z]` section to `probe:z_virtual_endstop`.
-
-Just comment out the old one and add a new line `endstop_pin: probe:z_virtual_endstop` and comment out position_endstop.
-
-You will need to update the klicky-variables.cfg Z probing variables,  set the two variables below to `0`, it will probe the middle of the bed.
-
-```python
-variable_z_endstop_x:     0
-variable_z_endstop_y:     0
-```
-You also need to comment position_endstop
+If you want to use the Klicky Probe as your Z endstop, please read this [excellent documentation](https://github.com/T4KUUY4/Voron-Stuff/tree/main/KlickyProbeZoffset) by Takuya and Clee.
 
 #### Assembled Klicky Probe
 
