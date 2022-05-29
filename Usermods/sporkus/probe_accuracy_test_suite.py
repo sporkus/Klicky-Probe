@@ -12,6 +12,7 @@ import argparse
 import re
 import os
 import math
+import sys
 from datetime import datetime
 from statistics import mean
 
@@ -24,6 +25,7 @@ LEVEL_GCODE = "QUAD_GANTRY_LEVEL"
 MOONRAKER_URL = "http://localhost:7125"
 KLIPPY_LOG = "/home/pi/klipper_logs/klippy.log"
 DATA_DIR = "/home/pi/probe_accuracy_results"
+RUNID = datetime.now().strftime("%Y%m%d_%H%M")
 
 
 def main(corner, repeatability, drift, export_csv):
@@ -53,7 +55,7 @@ def test_routine(corner, repeatability, drift, export_csv):
         dfs.append(test_drift(n=drift))
     df = pd.concat(dfs, axis=0, ignore_index=True).sort_index()
 
-    file_nm = f"probe_accuracy_test_{now()}"
+    file_nm = f"probe_accuracy_test_{RUNID}"
     summary = df.groupby("test")["z"].agg(
         ["min", "max", "first", "last", "mean", "std", "count"]
     )
@@ -73,7 +75,7 @@ def test_drift(n=100):
     summary["drift"] = summary["last"] - summary["first"]
     print(summary)
     ax = df.plot.scatter(x="index", y="z", title=f"Drift test (n={n})")
-    ax.figure.savefig(f"{DATA_DIR}/probe_accuracy_{now()}_drift.png")
+    ax.figure.savefig(f"{DATA_DIR}/probe_accuracy_{RUNID}_drift.png")
     return df
 
 
@@ -93,7 +95,7 @@ def test_repeatability(test_count=10, probe_count=10):
     summary["drift"] = summary["last"] - summary["first"]
     print(summary)
     ax = df.boxplot(column="z", by="measurement", rot=45, fontsize=8)
-    plot_nm = f"probe_accuracy_{now()}_repeatability"
+    plot_nm = f"probe_accuracy_{RUNID}_repeatability"
     plt.title(plot_nm)
     plt.suptitle("")
     ax.figure.savefig(DATA_DIR + "/" + plot_nm + ".png")
@@ -126,7 +128,7 @@ def test_corners(n=30):
     summary["drift"] = summary["last"] - summary["first"]
     print(summary)
     ax = df.boxplot(column="z", by="measurement", rot=45, fontsize=8)
-    plot_nm = f"probe_accuracy_{now()}_corners"
+    plot_nm = f"probe_accuracy_{RUNID}_corners"
     plt.title(plot_nm)
     plt.suptitle("")
     ax.figure.savefig(DATA_DIR + "/" + plot_nm + ".png")
@@ -154,7 +156,7 @@ def plot_repeatability(df, cols=5, plot_nm=None):
         ax.label_outer()
 
     fig.tight_layout()
-    fig.savefig(f"{DATA_DIR}/probe_accuracy_{now()}_{plot_nm}.png")
+    fig.savefig(f"{DATA_DIR}/probe_accuracy_{RUNID}_{plot_nm}.png")
 
 
 def send_gcode(gcode):
@@ -221,8 +223,12 @@ def get_bed_corners() -> List:
     return [(xmin, ymax), (xmax, ymax), (xmin, ymin), (xmax, ymin)]
 
 
-def move_to_loc(x, y):
-    send_gcode(f"G0 X{x} Y{y} F99999")
+def move_to_loc(x, y, echo=False):
+    gcode = f"G0 X{x} Y{y} F99999"
+    if echo:
+        print(gcode)
+        send_gcode(f"M118 {gcode}")
+    send_gcode(gcode)
 
 
 def get_gcode_response(count=1000):
@@ -237,7 +243,16 @@ def collect_data(probe_count, discard_first_sample=True, test=None):
     send_gcode(f"PROBE_ACCURACY SAMPLES={probe_count}")
     raw = get_gcode_response(count=1000)
     gcode_resp = [x for x in raw if x["time"] > start_time]
+
+    err_msgs = [x["message"] for x in gcode_resp if x["message"].startswith("!!")]
     msgs = [x["message"] for x in gcode_resp if x["message"].startswith("// probe at")]
+
+    if len(err_msgs):
+        print("probe_accuracy failed! Klipper response:")
+        for msg in set(err_msgs):
+            print(msg)
+        print("Exiting!")
+        sys.exit(1)
 
     data = []
     for i, msg in enumerate(msgs):
@@ -260,9 +275,8 @@ def test_probe(probe_count, loc=None, testname=""):
     return df
 
 
-def now() -> str:
-    "current time in string"
-    return datetime.now().strftime("%Y%m%d_%H%M")
+class GcodeError(Exception):
+    pass
 
 
 if __name__ == "__main__":
