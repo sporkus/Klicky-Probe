@@ -59,6 +59,7 @@ def test_routine(corner, repeatability, drift, export_csv):
     summary = df.groupby("test")["z"].agg(
         ["min", "max", "first", "last", "mean", "std", "count"]
     )
+    summary["range"] = summary["max"] - summary["min"]
     summary["drift"] = summary["last"] - summary["first"]
 
     if export_csv:
@@ -68,10 +69,11 @@ def test_routine(corner, repeatability, drift, export_csv):
 
 def test_drift(n=100):
     print(f"\nTake {n} samples in a row to check for drift")
-    df = test_probe(probe_count=n, testname=f"center_{n}samples")
+    df = test_probe(probe_count=n, testname=f"center {n}samples")
     summary = df.groupby("test")["z"].agg(
         ["min", "max", "first", "last", "mean", "std", "count"]
     )
+    summary["range"] = summary["max"] - summary["min"]
     summary["drift"] = summary["last"] - summary["first"]
     print(summary)
     ax = df.plot.scatter(x="index", y="z", title=f"Drift test (n={n})")
@@ -82,16 +84,20 @@ def test_drift(n=100):
 def test_repeatability(test_count=10, probe_count=10):
     print(f"\nTake {test_count} probe_accuracy tests to check for repeatability")
     dfs = []
+    print("Test number: ", end="", flush=True)
     for i in range(test_count):
         send_gcode("DOCK_PROBE_UNLOCK")
         send_gcode(f"M117 repeatability test {i+1}/{test_count}")
-        df = test_probe(probe_count, testname=f"center_{probe_count}samples_#{i:02d}")
-        df["measurement"] = f"Test #{i:02d}"
+        print(f"{test_count - i}...", end="", flush=True)
+        df = test_probe(probe_count, testname=f"{i+1:02d}: center {probe_count}samples")
+        df["measurement"] = f"Test #{i+1:02d}"
         dfs.append(df)
+    print("Done")
     df = pd.concat(dfs, axis=0).sort_index()
     summary = df.groupby("test")["z"].agg(
         ["min", "max", "first", "last", "mean", "std", "count"]
     )
+    summary["range"] = summary["max"] - summary["min"]
     summary["drift"] = summary["last"] - summary["first"]
     print(summary)
     ax = df.boxplot(column="z", by="measurement", rot=45, fontsize=8)
@@ -99,7 +105,7 @@ def test_repeatability(test_count=10, probe_count=10):
     plt.title(plot_nm)
     plt.suptitle("")
     ax.figure.savefig(DATA_DIR + "/" + plot_nm + ".png")
-    plot_repeatability(df, plot_nm="repeatability_series")
+    plot_repeatability(df, plot_nm=f"{plot_nm}\n{probe_count} samples")
     return df
 
 
@@ -113,18 +119,21 @@ def test_corners(n=30):
     for i, xy in enumerate(get_bed_corners()):
         xy_txt = f"({xy[0]:.0f}, {xy[1]:.0f})"
         send_gcode(f"M117 corner test {i+1}/4")
+        print(f"{4-i}...", end="", flush=True)
         df = test_probe(
             probe_count=n,
             loc=xy,
-            testname=f"corner_{n}samples_{i}:{xy_txt}",
+            testname=f"{i+1}:corner {n}samples {xy_txt}",
         )
-        df["measurement"] = xy_txt
+        df["measurement"] = f"{i+1}: {xy_txt}"
         dfs.append(df)
+    print("Done")
     send_gcode("DOCK_PROBE_UNLOCK")
     df = pd.concat(dfs, axis=0)
     summary = df.groupby("test")["z"].agg(
         ["min", "max", "first", "last", "mean", "std", "count"]
     )
+    summary["range"] = summary["max"] - summary["min"]
     summary["drift"] = summary["last"] - summary["first"]
     print(summary)
     ax = df.boxplot(column="z", by="measurement", rot=45, fontsize=8)
@@ -132,19 +141,24 @@ def test_corners(n=30):
     plt.title(plot_nm)
     plt.suptitle("")
     ax.figure.savefig(DATA_DIR + "/" + plot_nm + ".png")
-    plot_repeatability(df, plot_nm="corners_series", cols=2)
+    plot_repeatability(df, plot_nm=f"{plot_nm}\n{n} samples", cols=2, sharey=False)
     return df
 
 
-def plot_repeatability(df, cols=5, plot_nm=None):
-    dfg = df.groupby("test")
+def plot_repeatability(df, cols=5, plot_nm=None, sharey=True):
+    dfg = df.groupby("measurement")
     rows = math.ceil(dfg.ngroups / cols)
-    fig, axs = plt.subplots(rows, cols, sharex=True, sharey=True, figsize=(15, 10))
+    fig, axs = plt.subplots(rows, cols, sharex=True, sharey=sharey, figsize=(15, 10))
+    ylim = (df["z"].min() - 0.001, df["z"].max() + 0.001)
 
     i, j = 0, 0
     for test, df in dfg:
         ax = axs[i][j] if rows > 1 else axs[j]
-        ax.scatter(df["index"], df["z"])
+        x, y = df["index"], df["z"]
+        ax.scatter(x, y)
+        ax.hlines(y.median(), x.min(), x.max())
+        if sharey:
+            ax.set_ylim(*ylim)
         ax.set_title(test)
         j += 1
         if j == cols:
@@ -155,8 +169,10 @@ def plot_repeatability(df, cols=5, plot_nm=None):
         ax.set(xlabel="probe sample", ylabel="z")
         ax.label_outer()
 
+    fig.suptitle(plot_nm)
     fig.tight_layout()
-    fig.savefig(f"{DATA_DIR}/probe_accuracy_{RUNID}_{plot_nm}.png")
+    plot_nm = plot_nm.split("\n")[0]
+    fig.savefig(f"{DATA_DIR}/{plot_nm}.png")
 
 
 def send_gcode(gcode):
@@ -212,6 +228,7 @@ def get_bed_corners() -> List:
     cfg = query_printer_objects("configfile", "config")
     x_offset = cfg["probe"]["x_offset"]
     y_offset = cfg["probe"]["y_offset"]
+
     xmin, ymin = re.findall(r"[\d.]+", cfg["bed_mesh"]["mesh_min"])
     xmax, ymax = re.findall(r"[\d.]+", cfg["bed_mesh"]["mesh_max"])
 
@@ -248,17 +265,20 @@ def collect_data(probe_count, discard_first_sample=True, test=None):
     msgs = [x["message"] for x in gcode_resp if x["message"].startswith("// probe at")]
 
     if len(err_msgs):
-        print("probe_accuracy failed! Klipper response:")
+        print("\nSomething's wrong with probe_accuracy! Klipper response:")
         for msg in set(err_msgs):
             print(msg)
-        print("Exiting!")
-        sys.exit(1)
 
     data = []
     for i, msg in enumerate(msgs):
         coor = re.findall(r"[\d.]+", msg)
         x, y, z = [float(k) for k in coor]
         data.append({"test": test, "index": i, "x": x, "y": y, "z": z})
+
+    if len(data) == 0:
+        print("No measurements collected")
+        print("Exiting!")
+        sys.exit(1)
 
     if discard_first_sample:
         data.pop(0)
