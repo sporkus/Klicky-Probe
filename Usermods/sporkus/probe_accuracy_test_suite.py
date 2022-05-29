@@ -21,7 +21,6 @@ import matplotlib.pyplot as plt
 from requests import get, post
 from typing import Tuple, List, Dict
 
-LEVEL_GCODE = "QUAD_GANTRY_LEVEL"
 MOONRAKER_URL = "http://localhost:7125"
 KLIPPY_LOG = "/home/pi/klipper_logs/klippy.log"
 DATA_DIR = "/home/pi/probe_accuracy_results"
@@ -191,10 +190,26 @@ def homing() -> None:
 
 def level_bed(force=False) -> None:
     """Level bed if not done already"""
-    status = query_printer_objects(LEVEL_GCODE.lower(), "applied")
-    if (not status) or force:
+    cfg = query_printer_objects("configfile", "config")
+
+    ztilt = cfg.get("z_tilt")
+    qgl = cfg.get("quad_gantry_level")
+
+    if ztilt:
+        gcode = "z_tilt_adjust"
+        leveled = query_printer_objects("z_tilt", "applied")
+    elif qgl:
+        gcode = "quad_gantry_level"
+        leveled = query_printer_objects("quad_gantry_level", "applied")
+    else:
+        print(
+            "User has no leveling gcode. Please check printer.cfg [z_tilt] or [quad_gantry_level]"
+        )
+        print("Skip leveling...")
+
+    if (not leveled) or force:
         print("Leveling")
-        send_gcode(LEVEL_GCODE)
+        send_gcode(gcode)
 
 
 def move_to_safe_z():
