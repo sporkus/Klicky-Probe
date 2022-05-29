@@ -14,8 +14,8 @@ import os
 import math
 import sys
 from datetime import datetime
-from statistics import mean
 
+import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 from requests import get, post
@@ -234,8 +234,8 @@ def get_bed_center() -> Tuple:
     xmin, ymin, _, _ = query_printer_objects("toolhead", "axis_minimum")
     xmax, ymax, _, _ = query_printer_objects("toolhead", "axis_maximum")
 
-    x = mean([xmin, xmax])
-    y = mean([ymin, ymax])
+    x = np.mean([xmin, xmax])
+    y = np.mean([ymin, ymax])
     return (x, y)
 
 
