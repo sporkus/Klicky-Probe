@@ -210,8 +210,8 @@ def get_bed_corners() -> List:
     cfg = query_printer_objects("configfile", "config")
     x_offset = cfg["probe"]["x_offset"]
     y_offset = cfg["probe"]["y_offset"]
-    xmin, ymin = cfg["bed_mesh"]["mesh_min"].split(", ")
-    xmax, ymax = cfg["bed_mesh"]["mesh_max"].split(", ")
+    xmin, ymin = re.findall(r"[\d.]+", cfg["bed_mesh"]["mesh_min"])
+    xmax, ymax = re.findall(r"[\d.]+", cfg["bed_mesh"]["mesh_max"])
 
     xmin = float(xmin) - float(x_offset)
     ymin = float(ymin) - float(y_offset)
@@ -241,7 +241,7 @@ def collect_data(probe_count, discard_first_sample=True, test=None):
 
     data = []
     for i, msg in enumerate(msgs):
-        coor = re.findall(r"[\d]+.[\d]+", msg)
+        coor = re.findall(r"[\d.]+", msg)
         x, y, z = [float(k) for k in coor]
         data.append({"test": test, "index": i, "x": x, "y": y, "z": z})
 
