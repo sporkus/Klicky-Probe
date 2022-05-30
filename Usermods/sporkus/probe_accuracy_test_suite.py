@@ -21,13 +21,15 @@ import matplotlib.pyplot as plt
 from requests import get, post
 from typing import Tuple, List, Dict
 
+from scipy import rand
+
 MOONRAKER_URL = "http://localhost:7125"
 KLIPPY_LOG = "/home/pi/klipper_logs/klippy.log"
 DATA_DIR = "/home/pi/probe_accuracy_results"
 RUNID = datetime.now().strftime("%Y%m%d_%H%M")
 
 
-def main(corner, repeatability, drift, export_csv):
+def main(corner, repeatability, drift, export_csv, force_dock):
     if not os.path.exists(DATA_DIR):
         os.mkdir(DATA_DIR)
     try:
@@ -39,17 +41,22 @@ def main(corner, repeatability, drift, export_csv):
             repeatability = 20
             drift = 100
             print("Running all tests")
-        test_routine(corner, repeatability, drift, export_csv)
+        test_routine(corner, repeatability, drift, export_csv, force_dock)
     except KeyboardInterrupt:
-        send_gcode("DOCK_PROBE_UNLOCK")
+        pass
+    send_gcode("DOCK_PROBE_UNLOCK")
 
 
-def test_routine(corner, repeatability, drift, export_csv):
+def test_routine(corner, repeatability, drift, export_csv, force_dock):
     dfs = []
     if corner:
-        dfs.append(test_corners(n=corner))
+        dfs.append(test_corners(n=corner, force_dock=force_dock))
     if repeatability:
-        dfs.append(test_repeatability(test_count=repeatability, probe_count=10))
+        dfs.append(
+            test_repeatability(
+                test_count=repeatability, probe_count=10, force_dock=force_dock
+            )
+        )
     if drift:
         dfs.append(test_drift(n=drift))
     df = pd.concat(dfs, axis=0, ignore_index=True).sort_index()
@@ -80,18 +87,35 @@ def test_drift(n=100):
     return df
 
 
-def test_repeatability(test_count=10, probe_count=10):
+def random_loc(margin=50):
+    xmin, ymin, _, _ = query_printer_objects("toolhead", "axis_minimum")
+    xmax, ymax, _, _ = query_printer_objects("toolhead", "axis_maximum")
+    cfg = query_printer_objects("configfile", "config")
+
+    x = np.random.random() * (xmax - xmin - margin) + margin
+    y = np.random.random() * (ymax - ymin - margin) + margin
+    return x, y
+
+
+def test_repeatability(test_count=10, probe_count=10, force_dock=False):
+    if not force_dock:
+        send_gcode("ATTACH_PROBE_LOCK")
+
     print(f"\nTake {test_count} probe_accuracy tests to check for repeatability")
     dfs = []
     print("Test number: ", end="", flush=True)
     for i in range(test_count):
-        send_gcode("DOCK_PROBE_UNLOCK")
+        move_to_loc(*random_loc())
+        move_to_loc(*get_bed_center())
         send_gcode(f"M117 repeatability test {i+1}/{test_count}")
         print(f"{test_count - i}...", end="", flush=True)
         df = test_probe(probe_count, testname=f"{i+1:02d}: center {probe_count}samples")
         df["measurement"] = f"Test #{i+1:02d}"
         dfs.append(df)
     print("Done")
+    if not force_dock:
+        send_gcode("DOCK_PROBE_UNLOCK")
+
     df = pd.concat(dfs, axis=0).sort_index()
     summary = df.groupby("test")["z"].agg(
         ["min", "max", "first", "last", "mean", "std", "count"]
@@ -108,12 +132,13 @@ def test_repeatability(test_count=10, probe_count=10):
     return df
 
 
-def test_corners(n=30):
+def test_corners(n=30, force_dock=False):
     print(
         "\nTest probe around the bed to see if there are issues with individual drives"
     )
     level_bed(force=True)
-    send_gcode("ATTACH_PROBE_LOCK")
+    if not force_dock:
+        send_gcode("ATTACH_PROBE_LOCK")
     dfs = []
     for i, xy in enumerate(get_bed_corners()):
         xy_txt = f"({xy[0]:.0f}, {xy[1]:.0f})"
@@ -127,7 +152,8 @@ def test_corners(n=30):
         df["measurement"] = f"{i+1}: {xy_txt}"
         dfs.append(df)
     print("Done")
-    send_gcode("DOCK_PROBE_UNLOCK")
+    if not force_dock:
+        send_gcode("DOCK_PROBE_UNLOCK")
     df = pd.concat(dfs, axis=0)
     summary = df.groupby("test")["z"].agg(
         ["min", "max", "first", "last", "mean", "std", "count"]
@@ -260,6 +286,7 @@ def move_to_loc(x, y, echo=False):
     if echo:
         print(gcode)
         send_gcode(f"M118 {gcode}")
+    send_gcode("G90")
     send_gcode(gcode)
 
 
@@ -341,6 +368,11 @@ if __name__ == "__main__":
         "--export_csv",
         action="store_true",
         help="export data as csv",
+    )
+    ap.add_argument(
+        "--force_dock",
+        action="store_true",
+        help="Force docking between tests. Default False",
     )
 
     args = vars(ap.parse_args())
