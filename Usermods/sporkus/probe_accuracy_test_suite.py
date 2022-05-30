@@ -45,6 +45,7 @@ def main(corner, repeatability, drift, export_csv, force_dock):
     except KeyboardInterrupt:
         pass
     send_gcode("DOCK_PROBE_UNLOCK")
+    move_to_loc(*get_bed_center())
 
 
 def test_routine(corner, repeatability, drift, export_csv, force_dock):
@@ -307,9 +308,10 @@ def collect_data(probe_count, discard_first_sample=True, test=None):
     msgs = [x["message"] for x in gcode_resp if x["message"].startswith("// probe at")]
 
     if len(err_msgs):
-        print("\nSomething's wrong with probe_accuracy! Klipper response:")
+        print("\n\nSomething's wrong with probe_accuracy! Klipper response:")
         for msg in set(err_msgs):
             print(msg)
+        check_klicky_macro_issue(err_msgs)
 
     data = []
     for i, msg in enumerate(msgs):
@@ -318,7 +320,7 @@ def collect_data(probe_count, discard_first_sample=True, test=None):
         data.append({"test": test, "index": i, "x": x, "y": y, "z": z})
 
     if len(data) == 0:
-        print("No measurements collected")
+        print("\nNo measurements collected")
         print("Exiting!")
         sys.exit(1)
 
@@ -335,6 +337,15 @@ def test_probe(probe_count, loc=None, testname=""):
 
     df = pd.DataFrame(collect_data(probe_count, test=testname))
     return df
+
+
+def check_klicky_macro_issue(msgs):
+    msg = "!! Error evaluating 'gcode_macro PROBE_ACCURACY:gcode': CommandError: Must perform PROBE_ACCURACY with the probe above the BED!"
+    if msg in msgs:
+        print("This issue can be fixed by updating klicky-macros.cfg")
+        print(
+            "Reference: https://github.com/jlas1/Klicky-Probe/commit/31a481c843567233c807bb310b6f0e83d60b4fca"
+        )
 
 
 class GcodeError(Exception):
