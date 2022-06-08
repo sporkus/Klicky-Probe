@@ -15,4 +15,15 @@
 * 60mm 24awg wires 
 
 #### Assembly
-outdated
+
+1. Insert fixed wire. Screw in m3x16 just enough to fix the wire
+
+2. Fix pin wire in pin with m3x6. Add magnet and insert into the body.
+
+3. Screw m3x16 the whole way in
+
+4. Add backpocket magnet
+
+5. Put the back magnet in cap and put the cap on partially
+
+6. Slide two front magnets in and tighten the cap completely
