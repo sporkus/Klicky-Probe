@@ -5,7 +5,6 @@
 * Forced 0.4mm perimeter
 * 5 bottom and top layer 
 * 30% + infill 
-![](photos/0.png)
 
 #### BOM 
 
